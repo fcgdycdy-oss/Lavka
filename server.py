@@ -182,12 +182,16 @@ class Handler(SimpleHTTPRequestHandler):
         print('[Лавочка] ' + (fmt % args))
 
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     init_db()
-    print(f'Лавочка запущена: http://{HOST}:{PORT}')
-    print(f'Редактор новостей и предложки: http://{HOST}:{PORT}/admin.html')
-    print('Сайт и данные хранятся локально на этом компьютере. Остановить: Ctrl+C')
-    try:
-        ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
-    except KeyboardInterrupt:
-        print('\nСервер остановлен.')
+
+    port = int(os.environ.get("PORT", 10000))
+    host = "0.0.0.0"
+
+    print(f"Starting Lavochka on {host}:{port}", flush=True)
+
+    server = ThreadingHTTPServer((host, port), Handler)
+    print(f"Server listening on {server.server_address}", flush=True)
+
+    server.serve_forever()
