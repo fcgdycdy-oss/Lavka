@@ -1,0 +1,20 @@
+Страница: https://jour.vsu.ru/rasp-html/
+HTML сохранен: D:\opa\Lavochka\source_dump\page.html
+
+Найденные скрипты:
+- https://jour.vsu.ru/wp-includes/js/jquery/jquery.min.js?ver=3.6.0 -> jquery.min.js (89521 bytes)
+  Возможный источник API: jquery.min.js
+- https://jour.vsu.ru/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.3.2 -> jquery-migrate.min.js (11224 bytes)
+- https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js -> jquery.min.js (85589 bytes)
+  Возможный источник API: jquery.min.js
+- https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js -> bootstrap.bundle.min.js (78635 bytes)
+- https://jour.vsu.ru/js/schedule/schedule.js -> schedule.js (13527 bytes)
+  Возможный источник API: schedule.js
+- https://jour.vsu.ru/js/schedule/schedule_nomodule.js -> schedule_nomodule.js (15305 bytes)
+  Возможный источник API: schedule_nomodule.js
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/js/plugins.min.js?ver=12.19 -> plugins.min.js (33592 bytes)
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/addons/scrollmagic/scrollmagic.js?ver=12.19 -> scrollmagic.js (17591 bytes)
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/js/znscript.min.js?ver=12.19 -> znscript.min.js (45387 bytes)
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/addons/smooth_scroll/SmoothScroll.min.js?ver=12.19 -> SmoothScroll.min.js (7186 bytes)
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/addons/slick/slick.min.js?ver=12.19 -> slick.min.js (42863 bytes)
+- https://jour.vsu.ru/wp-content/themes/kallyas%204168/framework/zion-builder/dist/znpb_frontend.bundle.js?ver=1.0.22 -> znpb_frontend.bundle.js (48489 bytes)
