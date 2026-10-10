@@ -6,12 +6,13 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode
 from urllib.request import Request, urlopen
 import json
+import os
 import sqlite3
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
-HOST = '127.0.0.1'  # Сервер доступен только на этом компьютере.
-PORT = 8000
+HOST = "0.0.0.0"  # Разрешаем подключения извне на хостинге.
+PORT = int(os.environ.get("PORT", 8000))
 FACULTY_ID = '000000003'
 API_URL = 'https://jour.vsu.ru/js/schedule/callapi.php'
 DB_FILE = ROOT / 'lavochka.db'
