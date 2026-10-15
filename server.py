@@ -11,8 +11,8 @@ import sqlite3
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
-HOST = "0.0.0.0"  # Разрешаем подключения извне на хостинге.
-PORT = int(os.environ.get("PORT", 8000))
+HOST = '127.0.0.1'  # Сервер доступен только на этом компьютере.
+PORT = int(os.environ.get('PORT', '8000'))
 FACULTY_ID = '000000003'
 API_URL = 'https://jour.vsu.ru/js/schedule/callapi.php'
 DB_FILE = ROOT / 'lavochka.db'
@@ -182,16 +182,12 @@ class Handler(SimpleHTTPRequestHandler):
         print('[Лавочка] ' + (fmt % args))
 
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     init_db()
-
-    port = int(os.environ.get("PORT", 10000))
-    host = "0.0.0.0"
-
-    print(f"Starting Lavochka on {host}:{port}", flush=True)
-
-    server = ThreadingHTTPServer((host, port), Handler)
-    print(f"Server listening on {server.server_address}", flush=True)
-
-    server.serve_forever()
+    print(f'Лавочка запущена: http://{HOST}:{PORT}')
+    print(f'Редактор новостей и предложки: http://{HOST}:{PORT}/admin.html')
+    print('Сайт и данные хранятся локально на этом компьютере. Остановить: Ctrl+C')
+    try:
+        ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    except KeyboardInterrupt:
+        print('\nСервер остановлен.')

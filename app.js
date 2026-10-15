@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const group = $('group');
 const course = $('course');
+const specialty = $('specialty');
 let allGroups = [];
 let weekOffset = 0;
 let loadedSchedule = null;
@@ -27,12 +28,18 @@ function getMonday(date) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return d;
 }
-// Mirrors the official VSU schedule script: alternate weeks from the Monday of the week containing September 1.
+// Mirrors the official VSU schedule rule, using UTC day numbers to avoid DST shifts.
+// The anchor is Monday of the week containing September 1 of the academic year.
 function weekTypeFor(date) {
   const targetMonday = getMonday(date);
-  const year = targetMonday.getMonth() >= 8 ? targetMonday.getFullYear() : targetMonday.getFullYear() - 1;
+  const year = targetMonday.getMonth() >= 8
+    ? targetMonday.getFullYear()
+    : targetMonday.getFullYear() - 1;
   const anchor = getMonday(new Date(year, 8, 1));
-  const weeks = Math.round((targetMonday - anchor) / (7 * 24 * 60 * 60 * 1000));
+  const dayNumber = value => Date.UTC(
+    value.getFullYear(), value.getMonth(), value.getDate()
+  ) / 86400000;
+  const weeks = Math.round((dayNumber(targetMonday) - dayNumber(anchor)) / 7);
   return ((weeks % 2) + 2) % 2 === 0 ? 'numerator' : 'denominator';
 }
 function formatDate(date, options = { day: 'numeric', month: 'short' }) {
@@ -54,56 +61,98 @@ function setStatus(title, text, showLink = true) {
   $('status').querySelector('p').textContent = text;
   const link = $('status').querySelector('a'); link.hidden = !showLink;
 }
+function normalizeGroup(item) {
+  const courseValue = item.course ?? item.Курс ?? '';
+  return {
+    ...item,
+    id: String(item.id ?? item.Код ?? '').trim(),
+    name: String(item.name ?? item.Группа ?? '').trim(),
+    course: String(courseValue).trim(),
+    specialty: String(item.specialty ?? item.Специальность ?? '').trim() || 'Направление не указано'
+  };
+}
+
+function populateSpecialtyOptions(preferredSpecialty = '') {
+  const selectedCourse = course.value;
+  const filtered = allGroups.filter(item => selectedCourse && item.course === selectedCourse);
+  const specialties = [...new Set(filtered.map(item => item.specialty))]
+    .sort((a, b) => a.localeCompare(b, 'ru'));
+
+  specialty.replaceChildren(new Option(
+    !selectedCourse ? 'Сначала выбери курс' : specialties.length ? 'Выбери направление' : 'Направлений нет', ''
+  ));
+  for (const name of specialties) specialty.add(new Option(name, name));
+  specialty.disabled = !selectedCourse || specialties.length === 0;
+  if (preferredSpecialty && specialties.includes(preferredSpecialty)) specialty.value = preferredSpecialty;
+}
+
 function populateGroupOptions(preferredGroup = '') {
   const selectedCourse = course.value;
-  const filtered = allGroups.filter(item => !selectedCourse || String(item.course) === selectedCourse);
-  group.replaceChildren(new Option(filtered.length ? 'Выбери свою группу' : 'На этом курсе групп нет', ''));
+  const selectedSpecialty = specialty.value;
+  const filtered = allGroups.filter(item =>
+    selectedCourse && selectedSpecialty &&
+    item.course === selectedCourse && item.specialty === selectedSpecialty
+  );
+
+  group.replaceChildren(new Option(
+    !selectedCourse ? 'Сначала выбери курс' : !selectedSpecialty ? 'Сначала выбери направление' : filtered.length ? 'Выбери свою группу' : 'Групп нет', ''
+  ));
   for (const item of filtered) {
     const option = new Option(item.name, item.id);
-    option.dataset.course = item.course ?? '';
-    option.dataset.specialty = item.specialty ?? '';
+    option.dataset.course = item.course;
+    option.dataset.specialty = item.specialty;
     group.add(option);
   }
-  group.disabled = filtered.length === 0;
-  if (preferredGroup && [...group.options].some(option => option.value === preferredGroup)) {
-    group.value = preferredGroup;
-  }
-  $('groupHint').textContent = selectedCourse
-    ? `Курс ${selectedCourse}: ${filtered.length} групп. Выбор сохранится на этом устройстве.`
-    : `${filtered.length} групп доступно. Можно выбрать курс для быстрого поиска.`;
+  group.disabled = !selectedCourse || !selectedSpecialty || filtered.length === 0;
+  if (preferredGroup && filtered.some(item => item.id === String(preferredGroup))) group.value = String(preferredGroup);
+  $('groupHint').textContent = selectedCourse && selectedSpecialty
+    ? `Найдено групп: ${filtered.length}. Выбор сохранится на этом устройстве.`
+    : 'Сначала выбери курс и направление.';
 }
 
 async function loadGroups() {
-  group.disabled = true;
   course.disabled = true;
-  group.replaceChildren(new Option('Загружаем группы…', ''));
+  specialty.disabled = true;
+  group.disabled = true;
+  course.replaceChildren(new Option('Загружаем курсы…', ''));
+  specialty.replaceChildren(new Option('Сначала выбери курс', ''));
+  group.replaceChildren(new Option('Сначала выбери направление', ''));
   $('groupHint').textContent = 'Получаем актуальный список с официального источника ВГУ.';
+
   try {
     const response = await fetch(`${API_BASE}/groups`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.details || data.error || `HTTP ${response.status}`);
     if (!Array.isArray(data) || data.length === 0) throw new Error('Официальный API вернул пустой список групп');
-    allGroups = data;
-    const courses = [...new Set(allGroups.map(item => Number(item.course)).filter(Number.isFinite))].sort((a, b) => a - b);
-    course.replaceChildren(new Option('Все курсы', ''));
-    for (const value of courses) course.add(new Option(`${value} курс`, String(value)));
+
+    allGroups = data.map(normalizeGroup).filter(item => item.id && item.name && item.course);
+    if (!allGroups.length) throw new Error('В ответе API не найдены группы с кодом, названием и курсом');
+
+    const courses = [...new Set(allGroups.map(item => item.course))]
+      .sort((a, b) => (Number(a) || 999) - (Number(b) || 999) || a.localeCompare(b, 'ru'));
+    course.replaceChildren(new Option('Выбери курс', ''));
+    for (const value of courses) course.add(new Option(`${value} курс`, value));
+    course.disabled = false;
+
     const savedGroup = localStorage.getItem('lavochka-group') || '';
     const savedCourse = localStorage.getItem('lavochka-course') || '';
+    const savedSpecialty = localStorage.getItem('lavochka-specialty') || '';
     const savedGroupData = allGroups.find(item => item.id === savedGroup);
-    course.value = savedGroupData ? String(savedGroupData.course) : (courses.includes(Number(savedCourse)) ? savedCourse : '');
-    course.disabled = false;
+    course.value = savedGroupData?.course || (courses.includes(savedCourse) ? savedCourse : '');
+    populateSpecialtyOptions(savedGroupData?.specialty || savedSpecialty);
     populateGroupOptions(savedGroup);
-    if (!group.value && savedGroup) {
-      course.value = '';
-      populateGroupOptions(savedGroup);
-    }
+
     if (group.value) {
       selectedGroup = group.value;
       await loadSchedule();
+    } else {
+      setStatus('Настроим расписание под тебя', 'Выбери курс, направление и группу. Расписание загрузится автоматически.', true);
     }
   } catch (error) {
+    course.replaceChildren(new Option('Не удалось загрузить курсы', ''));
+    specialty.replaceChildren(new Option('Сначала выбери курс', ''));
     group.replaceChildren(new Option('Не удалось загрузить группы', ''));
-    course.disabled = true;
+    course.disabled = specialty.disabled = group.disabled = true;
     $('groupHint').textContent = 'Проверь подключение к интернету и запущен ли локальный сервер.';
     setStatus('Не удалось подключиться к ВГУ', `Ошибка загрузки списка групп: ${error.message}. Проверь, что сервер запущен командой python server.py.`, true);
     console.error('Groups API error:', error);
@@ -192,20 +241,41 @@ function renderSchedule(rows) {
 }
 course.addEventListener('change', () => {
   localStorage.setItem('lavochka-course', course.value);
-  const currentGroup = group.value;
-  populateGroupOptions('');
+  localStorage.removeItem('lavochka-specialty');
+  localStorage.removeItem('lavochka-group');
+  specialty.value = '';
+  group.value = '';
+  populateSpecialtyOptions();
+  populateGroupOptions();
   loadedSchedule = null;
   selectedGroup = null;
-  if (currentGroup && [...group.options].some(option => option.value === currentGroup)) {
-    group.value = currentGroup;
-    loadSchedule();
+  setStatus('Выбери направление', 'Теперь выбери направление, а затем свою группу.', true);
+  $('scheduleTitle').textContent = 'Сначала выбери группу';
+});
+
+specialty.addEventListener('change', () => {
+  localStorage.setItem('lavochka-specialty', specialty.value);
+  localStorage.removeItem('lavochka-group');
+  group.value = '';
+  populateGroupOptions();
+  loadedSchedule = null;
+  selectedGroup = null;
+  setStatus('Выбери свою группу', 'Выбери группу выбранного направления.', true);
+  $('scheduleTitle').textContent = 'Сначала выбери группу';
+});
+
+group.addEventListener('change', () => {
+  loadedSchedule = null;
+  selectedGroup = null;
+  if (group.value) {
+    localStorage.setItem('lavochka-group', group.value);
+    localStorage.setItem('lavochka-course', course.value);
+    localStorage.setItem('lavochka-specialty', specialty.value);
   } else {
     localStorage.removeItem('lavochka-group');
-    setStatus('Выбери свою группу', 'Сначала выбери группу на выбранном курсе. Тип недели определится автоматически.', true);
-    $('scheduleTitle').textContent = 'Сначала выбери группу';
   }
+  loadSchedule();
 });
-group.addEventListener('change', () => { loadedSchedule = null; if (group.value) localStorage.setItem('lavochka-course', course.value); loadSchedule(); });
 $('prevWeek').addEventListener('click', () => { weekOffset--; updateWeek(); });
 $('nextWeek').addEventListener('click', () => { weekOffset++; updateWeek(); });
 $('todayBtn').addEventListener('click', () => { weekOffset = 0; updateWeek(); });
